@@ -1,0 +1,15 @@
+<Node>
+  <value>Ĝi povas surgrimpi arbon</value>
+  <left>
+    <value>hundo</value>
+  </left>
+  <right>
+    <value>ĝi loĝas en la arbaro</value>
+    <left>
+      <value>kato</value>
+    </left>
+    <right>
+      <value>linko</value>
+    </right>
+  </right>
+</Node>

@@ -1,0 +1,15 @@
+{
+  "value" : "Ĝi povas surgrimpi arbon",
+  "left" : {
+    "value" : "hundo"
+  },
+  "right" : {
+    "value" : "ĝi loĝas en la arbaro",
+    "left" : {
+      "value" : "kato"
+    },
+    "right" : {
+      "value" : "linko"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+<Node>
+  <value>it can climb trees</value>
+  <left>
+    <value>dog</value>
+  </left>
+  <right>
+    <value>it is living in the forest</value>
+    <left>
+      <value>a cat</value>
+    </left>
+    <right>
+      <value>lynx</value>
+    </right>
+  </right>
+</Node>

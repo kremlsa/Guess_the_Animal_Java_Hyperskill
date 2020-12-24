@@ -1,0 +1,573 @@
+type: edu
+files:
+- name: src/animals/Main.java
+  visible: true
+  text: |
+    package animals;
+
+    import java.util.Scanner;
+
+    public class Main {
+        static Scanner sc = new Scanner(System.in);
+        static Animal animalF;
+        static Animal animalS;
+        static Facts facts = new Facts();
+
+        public static void main(String[] args) {
+            Game game = new Game();
+            game.start();
+            /*Greetings.say();
+            System.out.println();
+            addFacts();
+            System.out.println("Enter an animal:");
+            String input = sc.nextLine();
+            Animal animal = new Animal(input);
+            System.out.println("Is it " + animal.getName() + "?");
+            String answer = sc.nextLine();
+            while (true) {
+                if (Answers.checkAnswer(answer).equals("Come on, yes or no?")) {
+                    Questions.say();
+                    answer = sc.nextLine();
+                } else {
+                    System.out.println("You answered: " + Answers.checkAnswer(answer));
+                    break;
+                }
+            }
+
+            System.out.println();
+            GoodBye.say();*/
+        }
+
+        public static void addFacts() {
+            System.out.println("Enter the first animal:");
+            String first = sc.nextLine();
+            System.out.println("Enter the second animal:");
+            String second = sc.nextLine();
+            animalF = new Animal(first);
+            animalS = new Animal(second);
+            System.out.println("Specify a fact that distinguishes " + animalF.getNameA() + " from " + animalS.getNameA() + ".\n" +
+                    "The sentence should be of the format: 'It can/has/is ...'.\n");
+            String fact = sc.nextLine();
+            while (true) {
+                String response = Answers.checkFact(fact);
+                if (response.startsWith("The examples")) {
+                    System.out.println(response);
+                    fact = sc.nextLine();
+                } else {
+                    break;
+                }
+            }
+            System.out.println("Is it correct for " + animalS.getNameA() + "?");
+            String answer = sc.nextLine();
+            while (true) {
+                if (Answers.checkAnswer(answer).equals("Yes")) {
+                    facts.addFacts(fact, animalS);
+                    break;
+                } else if (Answers.checkAnswer(answer).equals("No")) {
+                    facts.addFacts(fact, animalF);
+                    break;
+                } else {
+                    Questions.say();
+                    answer = sc.nextLine();
+                }
+            }
+            System.out.println("I learned the following facts about animals:\n" +
+                    " - The " + (facts.itHas(animalS) ? animalS.getName() : animalF.getName()) + " " + facts.positiveFacts(fact) + ".\n" +
+                    " - The " + (facts.itHas(animalF) ? animalS.getName() : animalF.getName()) + " " + facts.negativeFacts(fact) + ".\n");
+
+            System.out.println("I can distinguish these animals by asking the question:\n" +
+                    " - " + facts.getQuestion(fact) + "?");
+
+        }
+
+    }
+  learner_created: false
+- name: test/unclear-answers.script.yaml
+  visible: false
+  text: |
+    #
+    # This is a script to test the interpretation of unclear responses.
+    #
+    ---
+    - [start]
+    - [input, cat]
+    - [input, ""]   # Press Enter to start the game
+    #
+    # The game started
+    #
+    - [contains, "Is it a cat?", "The program should ask: \"Is it a cat?\""]
+    #
+    # Here we substitute all values from the data file
+    #
+    - [input, "{0}"]
+    - - contains
+      - "yes or no"
+      - "The answer \"{0}\" is unclear and the program should ask again."
+  learner_created: false
+- name: test/file-formats.data.yaml
+  visible: false
+  text: |-
+    ---
+    - - json
+    - - xml
+    - - yaml
+  learner_created: false
+- name: test/Scenario.java
+  visible: false
+  text: |-
+    import animals.Main;
+    import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testing.TestedProgram;
+
+    import java.io.File;
+    import java.io.IOException;
+    import java.util.Map;
+    import java.util.function.Predicate;
+
+    import static java.text.MessageFormat.format;
+    import static java.util.function.Predicate.not;
+    import static org.hyperskill.hstest.testcase.CheckResult.correct;
+    import static org.hyperskill.hstest.testcase.CheckResult.wrong;
+
+    public class Scenario {
+        private final Object[][] data;
+        private final String[][] script;
+        private TestedProgram main;
+        private String output = "";
+
+        Scenario(String name) throws IOException {
+            data = new YAMLMapper().readValue(new File("test/" + name + ".data.yaml"), String[][].class);
+            script = new YAMLMapper().readValue(new File("test/" + name + ".script.yaml"), String[][].class);
+        }
+
+        CheckResult check() {
+            for (var values : data) {
+                for (var action : script) {
+                    switch (action[0]) {
+                        case "start":
+                            main = new TestedProgram(Main.class);
+                            output = action.length == 1 ? main.start()
+                                    : main.start(format(action[1], values).split(" "));
+                            continue;
+                        case "input":
+                            output = main.execute(format(action[1], values));
+                            continue;
+                        case "finish":
+                            if (main.isFinished()) continue;
+                            return wrong(format(action[1], values));
+                        default:
+                            final Map<String, Predicate<String>> validation = Map.of(
+                                    "contains", output::contains,
+                                    "not contains", not(output::contains),
+                                    "file exists", file -> new File(file).exists(),
+                                    "file delete", file -> new File(file).delete(),
+                                    "matches", output::matches);
+
+                            if (validation.get(action[0]).test(format(action[1], values))) continue;
+                            return wrong(format(action[2], values));
+                    }
+                }
+            }
+            return correct();
+        }
+
+    }
+  learner_created: false
+- name: test/negative-answers.script.yaml
+  visible: false
+  text: |
+    #
+    # This is a script to test the correct interpretation of negative answers.
+    #
+    ---
+    - [start]
+    - [input, cat]
+    - [input, ""]   # Press Enter to start the game
+    #
+    # The game started
+    #
+    - [contains, "Is it a cat?", "The program should ask: \"Is it a cat?\""]
+    #
+    # Here we substitute all values from the data file
+    #
+    - [input, "{0}"]
+    - - not contains
+      - "yes or no"
+      - "The answer \"{0}\" should be treated as correct negative."
+  learner_created: false
+- name: test/positive-answers.data.yaml
+  visible: false
+  text: |-
+    #
+    # The possible positive answers
+    #
+    ---
+    # The program must ignore the case of letters.
+    - - y
+    - - Y
+    # The user can put a point
+    - - y.
+    - - Y.
+    # An exclamation mark is also allowed.
+    - - y!
+    - - Y!
+    # The program must ignore leading spaces.
+    - - "   Yes"
+    # As well ignore trailing spaces.
+    - - "Yes   "
+    # All of the following expressions are valid answers.
+    - - yes
+    - - Yes
+    - - YES
+    - - yes.
+    - - Yes!
+    - - YES!
+    - - yES!
+    - - YeS
+    - - Yeah
+    - - yeah
+    - - Yeah!
+    - - YeAh.
+    - - YEAH
+    - - yep
+    - - yEp
+    - - Yep!
+    - - YEP.
+    - - sure
+    - - Sure!
+    - - SURE!
+    - - surE.
+    - - right
+    - - Right.
+    - - Right!
+    - - affirmative
+    - - Affirmative!
+    - - correct
+    - - correct.
+    - - indeed
+    - - you bet
+    - - exactly
+    - - you said it.
+    - - you said it!
+    - - you said it
+  learner_created: false
+- name: test/the-first-question.script.yaml
+  visible: false
+  text: |-
+    #
+    # This is a script to test the generation of the first question.
+    #
+    ---
+    - [start]
+    - [input, "{0}"]
+    - [input, ""]   # Press Enter to start the game
+    #
+    # The game started
+    #
+    - [contains, "Is it {1}?", "The program should ask: \"Is it {1}?\""]
+  learner_created: false
+- name: test/negative-answers.data.yaml
+  visible: false
+  text: |
+    #
+    # The possible negative answers
+    #
+    ---
+    # The program must ignore the case of letters.
+    - - n
+    - - N
+    # The user can put a point
+    - - n.
+    - - N.
+    # An exclamation mark is also allowed.
+    - - n!
+    - - N!
+    # The program must ignore leading spaces.
+    - - "   No"
+    # As well ignore trailing spaces.
+    - - "No   "
+    # All of the following expressions are valid answers.
+    - - no
+    - - nO
+    - - NO
+    - - No
+    - - no.
+    - - no!
+    - - No!
+    - - NO!
+    - - no way
+    - - no way!
+    - - No Way!
+    - - NO WAY!
+    - - no waY.
+    - - nah
+    - - Nah.
+    - - NAH!
+    - - naH
+    - - nope
+    - - NoPe!
+    - - NOPE.
+    - - negative
+    - - Negative.
+    - - i don't think so
+    - - I don't think so
+    - - I don't think so.
+    - - I don't Think SO.
+    - - yeah no
+    - - yeah no.
+    - - yeah no!
+    - - yeah NO!
+  learner_created: false
+- name: test/GuessAnimalTest.java
+  visible: false
+  text: |-
+    import animals.Main;
+    import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.io.File;
+    import java.io.IOException;
+    import java.util.stream.Stream;
+
+    public class GuessAnimalTest extends StageTest<String> {
+
+        public GuessAnimalTest() {
+            super(Main.class);
+        }
+
+        @DynamicTestingMethod
+        CheckResult theFirstQuestion() throws IOException {
+            return new Scenario("the-first-question").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult positiveAnswer() throws IOException {
+            return new Scenario("positive-answers").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult negativeAnswer() throws IOException {
+            return new Scenario("negative-answers").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult incorrectAnswer() throws IOException {
+            return new Scenario("unclear-answers").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult testFileFormats() throws IOException {
+            final var result = new Scenario("file-formats").check();
+
+            Stream.of("yaml", "json", "xml")
+                    .map("animals."::concat)
+                    .map(File::new)
+                    .filter(File::exists)
+                    .forEach(File::delete);
+
+            return result;
+        }
+    }
+  learner_created: false
+- name: test/unclear-answers.data.yaml
+  visible: false
+  text: |-
+    #
+    # All of the following expressions should be treated as unclear
+    #
+    ---
+    - - y..
+    - - Y!.
+    - - ye
+    - - jes
+    - - Jes
+    - - yes...
+    - - да
+    - - Так
+    - - yes, yes
+    - - Yea
+    - - Ja
+    - - Jawohl!
+    - - ja natürlich!
+    - - so genau
+    - - 1
+    - - +
+    - - yepi
+    - - Yep!!
+    - - Yes, sure!
+    - - Ok
+    - - Rights
+    - - affErmative
+    - - n..
+    - - N!!
+    - - nea
+    - - nop
+    - - noppi
+    - - no wa
+    - - no way!!!
+    - - na
+    - - nahi
+    - - nega
+    - - negat
+    - - negati
+    - - negativ
+    - - i don't think..
+    - - i don't
+    - - i
+    - - I no
+    - - i don't think so...
+    - -
+  learner_created: false
+- name: test/the-first-question.data.yaml
+  visible: false
+  text: |-
+    ---
+    - [cat, a cat]
+    - [DOG, a dog]
+    - [hare, a hare]
+    - [WOLF, a wolf]
+    - [uniCorn, an unicorn]
+    - [uniCorn, an unicorn]
+    - [A Unicorn, a unicorn]
+    - [APE, an ape]
+    - [uniCorn, an unicorn]
+    - [uniCorn, an unicorn]
+    - [linX, a linx]
+  learner_created: false
+- name: test/file-formats.script.yaml
+  visible: false
+  text: |+
+    #
+    # This is a script to test file formats: JSON, YAML, XML.
+    #
+    ---
+    - [start, "-type {0}"]
+    - [matches, "(?si).*animal.*", The program should asks the user for a favourite animal]
+    - [input, cat]
+    - - contains
+      - You think of an animal, and I guess it.
+      - The program should asks the user to think of an animal
+    - [input, ""] # Press Enter to start the game
+    #
+    # The first game started
+    #
+    - - contains
+      - Is it a cat?
+      - The program should asks the user is it the cat
+    - [input, no]
+    - - contains
+      - I give up. What animal do you have in mind?
+      - The program should give up
+    - [input, dog]
+    - - contains
+      - Specify a fact that distinguishes a cat from a dog
+      - The program should find out how one animal differs from another.
+    - [input, It can climbs tree]
+    - - contains
+      - Is the statement correct for a dog?
+      - The program should clarify if the statement is correct for a dog.
+    - [input, No]
+    - - matches
+      - (?si).*(again|repeat|one more game).*
+      - The program should ask to play again
+    - [input, Yes]
+    - - contains
+      - You think of an animal, and I guess it.
+      - The program should asks the user to think of an animal
+    - [input, ""] # Press Enter to start the game
+    #
+    # The second game started
+    #
+    - - contains
+      - Can it climbs tree?
+      - The only question in the knowledge tree should be "Can it climbs tree?"
+    - [input, Yes]
+    - - contains
+      - Is it a cat?
+      - The program doesn't print the expected message
+    - [input, No]
+    - - contains
+      - I give up. What animal do you have in mind?
+      - The program should give up
+    - - input
+      - a lynx
+    - - input
+      - It is living in the forest
+    - - contains
+      - Is the statement correct for a lynx?
+      - The program doesn't print the expected message
+    - [input, Yes]
+    - [input, No]
+    - [finish, The program should finish when the user refuse the new game]
+    - - file exists
+      - "animals.{0}"
+      - "The program should save knowledge tree to animals.{0} file."
+
+    #
+    # Start the program again and load the Knowledge Tree
+    #
+
+    - [start, "-type {0}"]
+    - - not contains
+      - Which animal do you like most?
+      - If knowledge base is exist the program should not asks the user for a favourite animal
+    - - contains
+      - You think of an animal, and I guess it.
+      - The program should asks the user to think of an animal
+    - [input, ""]
+    #
+    # The third game started. Test for the Knowledge Tree.
+    #
+    - - contains
+      - Can it climbs tree?
+      - The root question in knowledge tree should be "Can it climbs tree?"
+    - [input, yes]
+    - - contains
+      - Is it living in the forest?
+      - The second question should be 'Is it living in the forest?'
+    - [input, sure]
+    - - contains
+      - Is it a lynx?
+      - The last question should be 'Is it a lynx?'
+    - [input, right]
+    - - matches
+      - (?si).*(again|repeat|one more game).*
+      - The program should ask to play again
+    - [input, No]
+    - [finish, The program should finish when the user refuse the new game]
+    #
+    # Clear workspace after the test
+    #
+    - - file delete
+      - "animals.{0}"
+      - "The test can't delete animals.{0} file."
+
+  learner_created: false
+- name: test/positive-answers.script.yaml
+  visible: false
+  text: |+
+    #
+    # This is a script to test the correct interpretation of negative responses.
+    #
+    ---
+    - [start]
+    - [input, cat]
+    - [input, ""]   # Press Enter to start the game
+    #
+    # The game started
+    #
+    - [contains, "Is it a cat?", "The program should ask: \"Is it a cat?\""]
+    #
+    # Here we substitute all values from the data file
+    #
+    - [input, "{0}"]
+    - - not contains
+      - "yes or no"
+      - "The answer \"{0}\" should be treated as correct positive."
+
+  learner_created: false
+feedback_link: https://hyperskill.org/projects/132/stages/706/implement#comment
+status: Solved
+record: 4

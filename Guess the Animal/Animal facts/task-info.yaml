@@ -1,0 +1,389 @@
+type: edu
+files:
+- name: src/animals/Main.java
+  visible: true
+  text: |
+    package animals;
+
+    import java.util.Scanner;
+
+    public class Main {
+
+        public static void main(String[] args) {
+            Scanner sc = new Scanner(System.in);
+            Greetings.say();
+            System.out.println();
+            System.out.println("Enter an animal:");
+            String input = sc.nextLine();
+            Animal animal = new Animal(input);
+            System.out.println("Is it " + animal.getName() + "?");
+            String answer = sc.nextLine();
+            while (true) {
+                if (Answers.checkAnswer(answer).equals("Come on, yes or no?")) {
+                    Questions.say();
+                    answer = sc.nextLine();
+                } else {
+                    System.out.println("You answered: " + Answers.checkAnswer(answer));
+                    break;
+                }
+            }
+
+            System.out.println();
+            GoodBye.say();
+        }
+
+    }
+  learner_created: false
+- name: test/Scenario.java
+  visible: false
+  text: |-
+    import animals.Main;
+    import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testing.TestedProgram;
+
+    import java.io.File;
+    import java.io.IOException;
+    import java.util.Map;
+    import java.util.function.Predicate;
+
+    import static java.text.MessageFormat.format;
+    import static java.util.function.Predicate.not;
+    import static org.hyperskill.hstest.testcase.CheckResult.correct;
+    import static org.hyperskill.hstest.testcase.CheckResult.wrong;
+
+    public class Scenario {
+        private final Object[][] data;
+        private final String[][] script;
+        private TestedProgram main;
+        private String output = "";
+
+        Scenario(String name) throws IOException {
+            data = new YAMLMapper().readValue(new File("test/" + name + ".data.yaml"), String[][].class);
+            script = new YAMLMapper().readValue(new File("test/" + name + ".script.yaml"), String[][].class);
+        }
+
+        CheckResult check() {
+            for (var values : data) {
+                for (var action : script) {
+                    switch (action[0]) {
+                        case "start":
+                            main = new TestedProgram(Main.class);
+                            output = action.length == 1 ? main.start()
+                                    : main.start(format(action[1], values).split(" "));
+                            continue;
+                        case "input":
+                            output = main.execute(format(action[1], values));
+                            continue;
+                        case "finish":
+                            if (main.isFinished()) continue;
+                            return wrong(format(action[1], values));
+                        default:
+                            final Map<String, Predicate<String>> validation = Map.of(
+                                    "contains", output::contains,
+                                    "not contains", not(output::contains),
+                                    "file exists", file -> new File(file).exists(),
+                                    "file delete", file -> new File(file).delete(),
+                                    "matches", output::matches);
+
+                            if (validation.get(action[0]).test(format(action[1], values))) continue;
+                            return wrong(format(action[2], values));
+                    }
+                }
+            }
+            return correct();
+        }
+
+    }
+  learner_created: false
+- name: test/incorrect-statement.script.yaml
+  visible: false
+  text: |
+    #
+    # This is a script to test the reaction to incorrect statements.
+    #
+    ---
+    - [start]
+    - [input, cat]
+    - [input, dog]
+    - - contains
+      - Specify a fact that distinguishes a cat from a dog.
+      - The program should asks the user for a fact
+    #
+    # Here we substitute all incorrect statements from data file
+    #
+    - [input, "{0}"]
+    - - contains
+      - "examples of a statement"
+      - "The statement \"{0}\" doesn't fit the template. The program should show examples and ask the user again."
+  learner_created: false
+- name: test/correct-statement.data.yaml
+  visible: false
+  text: |
+    ---
+    - - "It is a mammal"
+    - - "It can barks"
+    - - "It has a tail"
+    - - "IT IS A SHY ANIMAL"
+    - - "it CAN swim and fly"
+    - - "it has long tooth."
+    - - "iT has five legs"
+    - - "It can catch a mouse."
+    - - "it is a danger predator."
+    - - "It is living in the forest."
+  learner_created: false
+- name: test/complete-scenario.script.yaml
+  visible: false
+  text: |-
+    #
+    # This script emulate complete sessions from start to the finish
+    #
+    ---
+    - [start]
+    - [contains, first animal, The program should asks the user for an first animal name]
+    - [input, "{0}"]
+    - [contains, second animal, The program should asks the user for an second animal name]
+    - [input, "{1}"]
+    - - contains
+      - "Specify a fact that distinguishes {2} from {3}."
+      - The program should asks the user for a fact
+    - [input, "{4}"]
+    - - contains
+      - "Is it correct for {3}?"
+      - "The program should clarify if the statement is correct for {3}."
+    #
+    # Here the user unclear answer and the program should ask again
+    #
+    - [input, "{5}"]
+    - - contains
+      - yes or no
+      - "The user input {5} should not be recognized as correct answer. The program should ask the user again."
+    #
+    # Here the user answer correctly
+    #
+    - [input, "{6}"]
+    #
+    # The program should generate two facts and the question
+    #
+    - - contains
+      - "{7}"
+      - The program should generate a fact about the first animals.
+    - - contains
+      - "{8}"
+      - The program should generate a fact about the second animals.
+    - - contains
+      - "{9}"
+      - The program should generate a closed question.
+    - - finish
+      - The program should finish after the correct response.
+  learner_created: false
+- name: test/GuessAnimalTest.java
+  visible: false
+  text: |+
+    import animals.Main;
+    import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.io.IOException;
+
+    public class GuessAnimalTest extends StageTest<String> {
+        public GuessAnimalTest() {
+            super(Main.class);
+        }
+
+        @DynamicTestingMethod
+        CheckResult incorrectStatement() throws IOException {
+            return new Scenario("incorrect-statement").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult correctStatement() throws IOException {
+            return new Scenario("correct-statement").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult completeScenario() throws IOException {
+            return new Scenario("complete-scenario").check();
+        }
+
+        @DynamicTestingMethod
+        CheckResult factsQuestion() throws IOException {
+            return new Scenario("facts-and-question").check();
+        }
+    }
+
+  learner_created: false
+- name: test/facts-and-question.script.yaml
+  visible: false
+  text: |-
+    #
+    # This script to test generation of facts and a question
+    #
+    ---
+    - [start]
+    #
+    # Here we send to the input the names of two animals and the statement.
+    #
+    - [input, "{0}"]  # The first animal
+    - [input, "{1}"]  # The second animal
+    - [input, "{2}"]  # The statement
+    - [input, "{3}"]  # Is the statement correct for the second animal?
+    #
+    # The program should generate two facts and the question
+    #
+    - - contains
+      - "{4}"
+      - "The program should generate a fact about {0}. The fact should be “{4}“."
+
+    - - contains
+      - "{5}"
+      - "The program should generate a fact about {1}. The fact should be “{5}“."
+
+    - - contains
+      - "{6}"
+      - "The program should generate a closed question: “{6}“ from statement “{2}“."
+
+    - [finish, The program should finish.]
+  learner_created: false
+- name: test/facts-and-question.data.yaml
+  visible: false
+  text: |
+    #
+    # This is a data file to test generated facts and a question
+    #
+
+    # --- user input ---
+    # The first animal
+    # The second animal
+    # The statement
+    # Is the statement correct for the second animal?
+
+    # --- expected output ---
+    # The fact for the first animal
+    # The fact for the second animal
+    # The closed question to distinguishes one animal from other
+    ---
+    - - cat
+      - shark
+      - it is a mammal
+      - no
+      - "The cat is a mammal."
+      - "The shark isn't a mammal."
+      - "Is it a mammal?"
+
+    - - wolf
+      - hare
+      - it is a shy animal
+      - yes
+      - "The wolf isn't a shy animal."
+      - "The hare is a shy animal."
+      - "Is it a shy animal?"
+
+
+    - - wolf
+      - fox
+      - it has a long bushy tail
+      - yes
+      - "The wolf doesn't have a long bushy tail."
+      - "The fox has a long bushy tail."
+      - "Does it have a long bushy tail?"
+
+    - - dog
+      - cat
+      - it can climb trees
+      - yes
+      - "The dog can't climb trees."
+      - "The cat can climb trees."
+      - "Can it climb trees?"
+
+    - - dog
+      - fox
+      - it is living in the forest
+      - yes
+      - "The dog isn't living in the forest."
+      - "The fox is living in the forest."
+      - "Is it living in the forest?"
+  learner_created: false
+- name: test/correct-statement.script.yaml
+  visible: false
+  text: |
+    #
+    # This is a script to test correct statements.
+    #
+    ---
+    - [start]
+    - [input, cat]
+    - [input, dog]
+    - - contains
+      - Specify a fact that distinguishes a cat from a dog.
+      - The program should asks the user for a fact
+    #
+    # Here we substitute all correct statements from data file
+    #
+    - [input, "{0}"]
+    - - contains
+      - Is it correct for a dog?
+      - The program should clarify if the statement is correct for a dog.
+  learner_created: false
+- name: test/complete-scenario.data.yaml
+  visible: false
+  text: |
+    #
+    # The data for the complete scenario from the start to the finish
+    #
+    ---
+    - - "cat"
+      - "DOG"
+      - "a cat"
+      - "a dog"
+      - "It can climb trees"
+      - "ha"
+      - "no"
+      - "The cat can climb trees"
+      - "The dog can't climb trees"
+      - "Can it climb trees?"
+
+    - - "hare"
+      - "wolf"
+      - "a hare"
+      - "a wolf"
+      - "It is a shy animal"
+      - "nej"
+      - "no"
+      - "The hare is a shy animal"
+      - "The wolf isn't a shy animal"
+      - "Is it a shy animal?"
+
+    - - "a lynx"
+      - "an unicorN"
+      - "a lynx"
+      - "an unicorn"
+      - "It is a fabulous animal?"
+      - "of c"
+      - "yes"
+      - "The lynx isn't a fabulous animal"
+      - "The unicorn is a fabulous animal"
+      - "Is it a fabulous animal?"
+  learner_created: false
+- name: test/incorrect-statement.data.yaml
+  visible: false
+  text: |
+    #
+    # All of these statements are wrong.
+    #
+    ---
+    - - "The dog barks"
+    - - "The cat meows"
+    - - "I don't know..."
+    - - "Who knows?"
+    - - "It flies"
+    - - "It barks"
+    - - "Can it fly?"
+    - - "It fly"
+    - - "may be it barks?"
+    - - "I do not what to say..."
+  learner_created: false
+feedback_link: https://hyperskill.org/projects/132/stages/704/implement#comment
+status: Solved
+record: 2

@@ -1,0 +1,15 @@
+{
+  "value" : "it can climb trees",
+  "left" : {
+    "value" : "dog"
+  },
+  "right" : {
+    "value" : "it is living in the forest",
+    "left" : {
+      "value" : "a cat"
+    },
+    "right" : {
+      "value" : "lynx"
+    }
+  }
+}
